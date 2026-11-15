@@ -11,8 +11,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>سجل المرضى – عيادة هلا سمايل</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>html.fw body{visibility:hidden}</style>
+<script>(function(){var d=document.documentElement,done=false;function go(){if(done)return;done=true;d.className=d.className.replace(/\bfw\b/,'')}d.className+=' fw';setTimeout(go,2500);var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap';l.onload=function(){try{Promise.all([document.fonts.load('400 16px Tajawal','عيادة هلا abc 123'),document.fonts.load('500 16px Tajawal','عيادة هلا abc 123'),document.fonts.load('700 16px Tajawal','عيادة هلا abc 123'),document.fonts.load('800 16px Tajawal','عيادة هلا abc 123')]).then(go,go)}catch(e){go()}};l.onerror=go;document.head.appendChild(l)})();</script>
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap"></noscript>
 <style>
 :root{--bg:#f4efe6;--dot:#d9ccb4;--card:#fff;--ink:#2b2a1a;--mut:#7a755f;--brand:#6f6a3e;--brand2:#8a8450;--soft:#ebe3d3;--line:#e4dac8;--ok:#17855a;--okb:#dff5ea;--wn:#a86610;--wnb:#fdf0d8;--no:#b8372f;--nob:#fbe4e2;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
@@ -155,6 +156,8 @@ dialog::backdrop{background:rgba(40,36,20,.5)}
 <dialog id="dlg"></dialog>
 
 <script>
+(function(){var f=window.fetch;if(!f||typeof AbortController==='undefined')return;window.fetch=function(u,o){o=o||{};if(o.signal)return f.call(window,u,o);var c=new AbortController(),t=setTimeout(function(){c.abort()},(o.method==='POST')?70000:35000);o.signal=c.signal;return f.call(window,u,o).then(function(r){clearTimeout(t);return r},function(e){clearTimeout(t);throw e})}})();
+
 (function(){
 /* ===== الإعداد: ألصق بين علامتي الاقتباس رابط جوجل شيت وكلمة السر ===== */
 var DOCS=['د. يوسف المحمد','د. نبهان السيد علي']; // أسماء الأطباء
@@ -191,16 +194,23 @@ function pend(){try{return JSON.parse(localStorage.getItem(PEND)||'[]')}catch(e)
 function setPend(a){try{localStorage.setItem(PEND,JSON.stringify(a))}catch(e){}}
 function send(p){return fetch(API,{method:'POST',body:JSON.stringify({name:UNAME,key:KEY,patient:p})}).then(function(r){return r.json()}).then(function(j){if(!j.ok)throw 0})}
 function push(p){var a=pend();if(a.indexOf(p.id)<0){a.push(p.id);setPend(a)}flush()}
-function flush(){var a=pend();if(!a.length){note('تم الحفظ في جوجل شيت ✓');return Promise.resolve()}
- note('جارٍ الحفظ…');var id=a[0];
- return send(P[id]).then(function(){setPend(pend().filter(function(x){return x!==id}));return flush()}).catch(function(){note('لم يُحفظ بعد. تحقق من الإنترنت، وسيُعاد الحفظ تلقائياً.',1)})}
+var FLK=false;
+function flush(){var a=pend();if(!a.length){FLK=false;note('تم الحفظ في جوجل شيت ✓');return Promise.resolve()}
+ if(FLK)return Promise.resolve();FLK=true;note('جارٍ الحفظ… ('+a.length+')');var id=a[0];
+ if(!P[id]){setPend(pend().filter(function(x){return x!==id}));FLK=false;return flush()}
+ return send(P[id]).then(function(){setPend(pend().filter(function(x){return x!==id}));FLK=false;return flush()})
+  .catch(function(){FLK=false;note('لم يُحفظ بعد ('+pend().length+' بالانتظار). سيُعاد الحفظ تلقائياً، أو اضغط هنا لإعادة المحاولة الآن.',1)})}
+setInterval(function(){if(API&&!document.hidden&&pend().length)flush()},20000);
+window.addEventListener('online',function(){if(API&&pend().length)flush()});
+(function(){var f=$('foot');if(f){f.style.cursor='pointer';f.addEventListener('click',function(){if(API&&pend().length)flush()})}})();
+var SAT=0;
 function startApi(){note('جارٍ تحميل السجلات…');
  fetch(loginUrl(UNAME,KEY)).then(function(r){return r.json()}).then(function(j){
   if(!j.patients)throw 0;var m={};j.patients.forEach(function(p){m[p.id]=p});
   if(!j.patients.length&&Object.keys(P).length){setPend(Object.keys(P))}
   pend().forEach(function(id){if(P[id])m[id]=P[id]});
-  P=m;saveLocal();if(sel&&!P[sel])sel=null;render();return flush()
- }).catch(function(){note('تعذر الاتصال بجوجل شيت (تأكد من الرابط وكلمة السر). تظهر النسخة المحفوظة على الجهاز.',1)})}
+  P=m;saveLocal();SAT=0;if(sel&&!P[sel])sel=null;render();return flush()
+ }).catch(function(){note('تعذر الاتصال بجوجل شيت. تظهر النسخة المحفوظة على الجهاز، وستتم إعادة المحاولة تلقائياً.',1);if(++SAT<6)setTimeout(startApi,12000)})}
 function nextId(){var m=1000;Object.keys(P).forEach(function(k){var n=parseInt(k,10);if(n>m)m=n});return String(m+1)}
 
 /* list */
@@ -1012,9 +1022,9 @@ function addImg(file){var p=P[sel];if(!p||!file)return;
  if(!/^image\//.test(file.type)){alert(trs('اختر ملف صورة.'));return}
  var lab=prompt(trs('وصف الصورة (اختياري) مثل: أشعة بانوراما'),'');if(lab===null)return;lab=lab.trim().slice(0,40);
  note(trs('جارٍ ضغط الصورة…'));
- shrink(file,1600,.8,function(full){if(!full){note(trs('تعذر تحميل الصورة'),1);return}
+ shrink(file,1280,.72,function(full){if(!full){note(trs('تعذر تحميل الصورة'),1);return}
   shrink(file,320,.7,function(th){if(!th){note(trs('تعذر تحميل الصورة'),1);return}
-   note(trs('جارٍ رفع الصورة…'));
+   note(trs('جارٍ رفع الصورة… قد يستغرق دقيقة إذا كان الإنترنت ضعيفاً.'));
    post({action:'uploadImg',pid:String(p.id),data:full,thumb:th}).then(function(j){
     if(!j||!j.ok||!j.id||!j.tid)throw {j:j};
     var q=P[p.id]||p;q.imgs=(q.imgs||[]).concat([{id:j.id,tid:j.tid,date:today(),time:nowT(),note:lab,by:UNAME}]);
